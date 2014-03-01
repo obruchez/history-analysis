@@ -6,7 +6,7 @@ object History {
   def main(args: Array[String]) {
     if (args.size < 2) {
       println("File(s) needed")
-      for { a <- args } { println(a) }
+      for (arg <- args) println(arg)
       return
     }
 
@@ -17,7 +17,7 @@ object History {
 
     try {
       inFiles.foreach(dumpFileResults(out, _))
-      if (inFiles.size > 1) dumpAllFileResults(out, inFiles)
+      //if (inFiles.size > 1) dumpAllFileResults(out, inFiles)
     } finally {
       out.close()
     }
@@ -44,7 +44,7 @@ object History {
     out.println(stars)
     out.println()
 
-    val fixedValues = Map("oui" -> "Oui", "non" -> "Non")
+    val fixedValues = Map[String, String]() //Map("oui" -> "Oui", "non" -> "Non")
     val trimmedLines =
       for (line <- lines) yield {
         for (cell <- line) yield {
@@ -54,11 +54,12 @@ object History {
       }
 
     implicit val keys = Key.keys(trimmedLines)
-    //keys.foreach(key => out.println(key.number+" "+key.name))
+    keys.foreach(key => out.println(key.number+" "+key.name))
 
     val answers = Answer.answersFromLines(trimmedLines)
-    //answers.foreach(answer => { answer.dump(); out.println("===") })
+    answers.foreach(answer => { answer.dump(out); out.println("===") })
 
+    /*
     out.println("Réponses: "+answers.size)
     out.println()
 
@@ -230,58 +231,43 @@ object History {
     out.println("Utile d'apprendre l'allemand = non:")
     dumpHypothesis12(findUsefulNo)
     out.println()
+    */
   }
 }
 
 case class Key(number: String, name: String)
 
 object Key {
+  private val RowsPerAnswer = 51
+
   def keys(lines: List[List[String]]): Seq[Key] = {
-    val firstAnswer = lines.take(123)
+    val firstAnswer = lines.take(RowsPerAnswer)
     val linesWithPrevious = firstAnswer.zip(List("", "") :: firstAnswer.init)
-    ((for ((line, previousLine) <- linesWithPrevious.filter(_._1(1).nonEmpty)) yield {
+
+    for {
+      (line, previousLine) <- linesWithPrevious.filter(_._1(1).nonEmpty)
+    } yield {
       val number = Some(line(0)).filter(_.nonEmpty).getOrElse(previousLine(0))
-      val filteredNumber = if (line(1) == "Comprendre discours") "" else number
-      Key(" "*(4-filteredNumber.length)+filteredNumber, line(1))
-    }) map { key =>
-      if (key.name == Answer.germanIsKey) {
-        Seq(key) ++ Answer.germanIsValues.map(value => Key(" "*4, Answer.extendedGermanIsKey.format(value)))
-      } else if (key.name == Answer.howMuchTime) {
-        Seq(key, Key(" "*4, Answer.simplifiedHowMuchTime))
-      } else {
-        Seq(key)
-      }
-    }).flatten
+      Key(" " * (4 - number.length) + number, line(1))
+    }
   }
 }
 
 case class Answer(
     number: Int,
-    keyValues: Map[String, Seq[(String, Int)]] = Map(),
-    oralComprehension: Option[Int] = None,
-    writtenComprehension: Option[Int] = None,
-    oralExpression: Option[Int] = None,
-    writtenExpression: Option[Int] = None,
-    grammar: Option[Int] = None,
-    books: Option[Int] = None) {
+    keyValues: Map[String, Seq[(String, Int)]] = Map()) {
   def dump(out: PrintWriter) {
-    out.println("Numéro: "+number)
-    out.println("Compréhension orale: "+oralComprehension.getOrElse("-"))
-    out.println("Compréhension écrite: "+writtenComprehension.getOrElse("-"))
-    out.println("Expression orale: "+oralExpression.getOrElse("-"))
-    out.println("Expression écrite: "+writtenExpression.getOrElse("-"))
-    out.println("Grammaire: "+grammar.getOrElse("-"))
-    out.println("Livres: "+books.getOrElse("-"))
+    out.println("Numéro: " + number)
     out.println("Valeurs:")
     for ((key, values) <- keyValues) {
-      val valueCountStrings = values map { case (value, count) => value+" ("+count+")" }
-      out.println(" - "+key+": "+Some(valueCountStrings).filterNot(_.isEmpty).map(_.reduceLeft(_+", "+_)).getOrElse("-"))
+      val valueCountStrings = values map { case (value, count) => s"$value ($count)" }
+      out.println(s" - $key: ${Some(valueCountStrings).filterNot(_.isEmpty).map(_.reduceLeft(_+", "+_)).getOrElse("-")}")
     }
   }
 }
 
 object Answer {
-  //val keys = collection.mutable.Map[String, collection.mutable.Set[Int]]()
+  private val LastKey = "5"
 
   def apply(lines: Seq[Seq[String]]): Answer = {
     @scala.annotation.tailrec
@@ -289,64 +275,22 @@ object Answer {
       val key = if (remainingLines(0)(1).nonEmpty) remainingLines(0)(1) else remainingLines(1)(1)
       assert(key.nonEmpty)
 
-      def score: Option[Int] = (2 to 7).find(column => remainingLines(0)(column).nonEmpty).map(_ - 1)
+      def countFromString(value: String, count: String): Option[Int] = Some(count).filterNot(_.isEmpty).map(_.toInt)
 
-      /*def checkValues() {
-        val notOnes =
-          (for {
-            (cell, index) <- remainingLines(1).zipWithIndex
-            if remainingLines(0)(index).nonEmpty
-          } yield (cell != "" && cell != "1")).fold(false)(_ || _)
-        if (notOnes) {
-          keys.getOrElseUpdate(key, collection.mutable.Set[Int]()).add(answer.number)
-        }
-      }*/
+      val values = remainingLines(0).drop(2).zipWithIndex map { case (value, index) =>
+        (value, remainingLines(1).lift(2 + index).getOrElse(""))
+      } filter { case (value, count) =>
+        value.nonEmpty && countFromString(value, count).nonEmpty
+      } map { case (value, count) =>
+        (value, countFromString(value, count).get)
+      }
 
-      val (newAnswer, linesToDrop) =
-        if (key == competenciesKey) {
-          (answer, 1)
-        } else if (key == oralComprehensionKey) {
-          (answer.copy(oralComprehension = score), 1)
-        } else if (key == writtenComprehensionKey) {
-          (answer.copy(writtenComprehension = score), 1)
-        } else if (key == oralExpressionKey) {
-          (answer.copy(oralExpression = score), 1)
-        } else if (key == writtenExpressionKey) {
-          (answer.copy(writtenExpression = score), 1)
-        } else if (key == grammarKey) {
-          (answer.copy(grammar = score), 1)
-        } else if (key == booksKey) {
-          (answer.copy(books = score), 2)
-        } else {
-          def countFromString(value: String, count: String): Option[Int] = {
-            // For "Allemand c'est" default count to 1 if not present
-            if (key == germanIsKey && value == Answer.noAnswerValue)
-              None
-            else if (key == germanIsKey && count.isEmpty)
-              Some(1)
-            else
-              Some(count).filterNot(_.isEmpty).map(_.toInt)
-          }
+      val keyValues = answer.keyValues + (key -> values)
 
-          val values = remainingLines(0).drop(2).zipWithIndex map { case (value, index) =>
-            (value, remainingLines(1)(2 + index))
-          } filter { case (value, count) =>
-            value.nonEmpty && countFromString(value, count).nonEmpty
-          } map { case (value, count) =>
-            (value, countFromString(value, count).get)
-          }
+      val newAnswer = answer.copy(keyValues = keyValues)
 
-          val baseKeyValues = answer.keyValues + (key -> values)
-          val keyValues =
-            if (key == germanIsKey)
-              baseKeyValues ++ extendedGermanIsValues(values)
-            else if (key == howMuchTime)
-              baseKeyValues ++ simplifiedHowMuchTimeValues(values)
-            else
-              baseKeyValues
-
-          (answer.copy(keyValues = keyValues), 3)
-        }
+      // Skip at least two rows + any extra empty row
+      val linesToDrop = 2 + remainingLines.drop(2).takeWhile(cellsEmpty).size
 
       if (remainingLines.size <= linesToDrop)
         newAnswer
@@ -354,45 +298,20 @@ object Answer {
         answerFromLines(remainingLines.drop(linesToDrop), newAnswer)
     }
 
-    val numberAsString = if (lines(0)(0).toLowerCase.startsWith("sujet")) lines(0)(0).substring(6) else lines(0)(0)
-    answerFromLines(lines.drop(1), Answer(number = numberAsString.toInt))
+    answerFromLines(lines.drop(1), Answer(number = lines(0)(0).toInt))
   }
 
   @scala.annotation.tailrec
   def answersFromLines(remainingLines: Seq[Seq[String]], parsedAnswers: Seq[Answer] = Seq()): Seq[Answer] = {
-    val nextAnswerOption = remainingLines.zipWithIndex.find(li => li._1(0) == "4.8").map(_._2 + 2)
+    val nextAnswerOption = remainingLines.zipWithIndex.find(li => li._1(0) == LastKey && li._2 != 0).map(_._2 + 2)
 
     nextAnswerOption match {
       case None => parsedAnswers
-      case Some(nextAnswer) => {
+      case Some(nextAnswer) =>
         answersFromLines(
           remainingLines.drop(nextAnswer).dropWhile(_(0).isEmpty),
           parsedAnswers :+ Answer(remainingLines.take(nextAnswer)))
-      }
     }
-  }
-
-  def extendedGermanIsValues(values: Seq[(String, Int)]): Seq[(String, Seq[(String, Int)])] =
-    values map { case (value, count) =>
-      // One key per original value
-      extendedGermanIsKey.format(value) -> Seq((count.toString, 1))
-    }
-
-  def simplifiedHowMuchTimeValues(values: Seq[(String, Int)]): Seq[(String, Seq[(String, Int)])] = {
-   val durationClasses =
-    for (value <- values) yield {
-      assert(values.size == 1)
-      val duration = value._1
-      val less = Set("1 semaine", "2 semaines").contains(duration)
-      val more = Set("3 semaines", "1 mois", "2 mois", "3 mois", "4-6 mois", "plus de 6 mois").contains(duration)
-      val durationClass =
-        if (less) "Moins de 3 semaines"
-        else if (more) "Plus de 3 semaines"
-        else "Autre"
-      (durationClass, 1)
-    }
-
-    Seq(simplifiedHowMuchTime -> durationClasses)
   }
 
   def cellsEmpty(line: Seq[String]): Boolean = line.map(_.isEmpty).fold(true)(_ && _)
@@ -402,14 +321,11 @@ object Answer {
     val sortedValuesAndCounts = valuesAndCounts.toSeq.sortBy(_._1).reverse.sortBy(_._2._1).reverse
 
     Some(sortedValuesAndCounts map { kv =>
-      val percentageString =
-        if (key.name == Answer.germanIsKey) {
-          ""
-        } else {
-          val percentage = 100.0 * kv._2._2.toDouble / answerCount
-          assert(percentage <= 100.0)
-          ", %.2f%%".format(percentage)
-        }
+      val percentage = 100.0 * kv._2._2.toDouble / answerCount
+      assert(percentage <= 100.0)
+
+      val percentageString =", %.2f%%".format(percentage)
+
       kv._1+" (%d%s)".format(kv._2._1, percentageString)
     }).filter(_.nonEmpty).map(_.reduceLeft(_+", "+_)).getOrElse("-")
   }
@@ -421,8 +337,7 @@ object Answer {
 
   def totals(
       answers: Seq[Answer],
-      withKeyValues: Boolean = true,
-      withCompetencies: Boolean = true): Totals = {
+      withKeyValues: Boolean = true): Totals = {
     val mutableTotals = collection.mutable.Map[String, collection.mutable.Map[String, (Int, Int)]]()
 
     for (answer <- answers) {
@@ -437,50 +352,19 @@ object Answer {
       if (withKeyValues) {
         for ((key, values) <- answer.keyValues; value <- values) addKeyAndValue(key, value._1, value._2)
       }
-
-      if (withCompetencies) {
-        addKeyAndValue(oralComprehensionKey, answer.oralComprehension.map(_.toString).getOrElse(noAnswerValue))
-        addKeyAndValue(writtenComprehensionKey, answer.writtenComprehension.map(_.toString).getOrElse(noAnswerValue))
-        addKeyAndValue(oralExpressionKey, answer.oralExpression.map(_.toString).getOrElse(noAnswerValue))
-        addKeyAndValue(writtenExpressionKey, answer.writtenExpression.map(_.toString).getOrElse(noAnswerValue))
-        addKeyAndValue(grammarKey, answer.grammar.map(_.toString).getOrElse(noAnswerValue))
-        addKeyAndValue(booksKey, answer.books.map(_.toString).getOrElse(noAnswerValue))
-      }
     }
 
     Totals(mutableTotals.toMap.map(kv => kv._1 -> kv._2.toMap), answers.size)
   }
 
   def dumpTotals(out: PrintWriter, totals: Totals)(implicit keys: Seq[Key]) {
-    def scoreAverage(key: Key, totalsByValue: Map[String, (Int, Int)]): String =
-      if (scoreKeys.contains(key.name)) {
-        val countsByScore = totalsByValue.filterNot(_._1 == "Pas de réponse") map { kv =>
-          val countWithDuplicates = kv._2._1
-          val countWithoutDuplicates = kv._2._2
-          assert(countWithDuplicates == countWithoutDuplicates)
-          kv._1.toInt -> countWithDuplicates
-        }
-        val totalScore = countsByScore.map(kv => kv._1 * kv._2).sum
-        val totalScoreCount = countsByScore.map(_._2).sum
-        val average = totalScore.toDouble / totalScoreCount
-        " (moyenne: %.2f)".format(average)
-    } else {
-      ""
-    }
-
     for (key <- keys; totalsByValue <- totals.totalsByKeyAndValue.get(key.name)) {
-      val valueCountString =
-        if (key.name == Answer.germanIsKey) {
-          ""
-        } else {
-          val valueCount = totalsByValue.map(_._2._1).fold(0)(_ + _)
-          " ("+valueCount+")"
-        }
+      val valueCount = totalsByValue.map(_._2._1).fold(0)(_ + _)
+      val valueCountString = " ("+valueCount+")"
 
       out.println(
         " - "+key.number+" "+key.name+valueCountString+": "+
-        Answer.valuesAndCountsAsString(key, totalsByValue, totals.answerCount)+
-        scoreAverage(key, totalsByValue))
+        Answer.valuesAndCountsAsString(key, totalsByValue, totals.answerCount))
     }
   }
 
@@ -489,39 +373,4 @@ object Answer {
 
   def filteredAnswers(answers: Seq[Answer], keys: Set[String]): Seq[Answer] =
     answers.map(answer => answer.copy(keyValues = answer.keyValues.filter(kv => keys.contains(kv._1))))
-
-  val competenciesKey = "Compétences"
-  val oralComprehensionKey = "Comprendre discours"
-  val writtenComprehensionKey = "Comprendre un texte"
-  val oralExpressionKey = "Parler"
-  val writtenExpressionKey = "Ecrire"
-  val grammarKey = "Faire de la grammaire"
-  val booksKey = "Lire des livres"
-  val germanIsKey = "Allemand c'est"
-  val extendedGermanIsKey = "Allemand c'est (%s)"
-  val howMuchTime = "Combien de temps"
-  val simplifiedHowMuchTime = "Combien de temps (classes)"
-  val noAnswerValue = "Pas de réponse"
-
-  val scoreKeys = Set(
-    oralComprehensionKey,
-    writtenComprehensionKey,
-    oralExpressionKey,
-    writtenExpressionKey,
-    grammarKey,
-    booksKey)
-
-  val germanIsValues = Seq(
-    "intéressant",
-    "ennuyeux",
-    "facile",
-    "difficile",
-    "utile",
-    "inutile",
-    "choix",
-    "obligation",
-    "nouvelle culture",
-    "parler aux autres",
-    "L comme les autres",
-    "pouvoir travailler à l'étranger")
 }
