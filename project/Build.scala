@@ -6,10 +6,10 @@ object ProjectBuild extends Build {
     id = "root",
     base = file("."),
     settings = Project.defaultSettings ++ Seq(
-      name := "german-analysis",
+      name := "history-analysis",
       organization := "org.bruchez",
-      version := "0.2",
-      scalaVersion := "2.10.1",
+      version := "0.1",
+      scalaVersion := "2.10.3",
       libraryDependencies += "org.apache.poi" % "poi-ooxml" % "3.9"
       // add other settings here
     )

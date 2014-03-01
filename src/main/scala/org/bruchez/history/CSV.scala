@@ -1,4 +1,4 @@
-package org.bruchez.german
+package org.bruchez.history
 
 import scala.util.parsing.combinator.RegexParsers
 

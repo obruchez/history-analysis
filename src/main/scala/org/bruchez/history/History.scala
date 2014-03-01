@@ -1,8 +1,8 @@
-package org.bruchez.german
+package org.bruchez.history
 
 import java.io._
 
-object German {
+object History {
   def main(args: Array[String]) {
     if (args.size < 2) {
       println("File(s) needed")
