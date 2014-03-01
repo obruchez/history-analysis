@@ -44,7 +44,7 @@ object History {
     out.println(stars)
     out.println()
 
-    val fixedValues = Map[String, String]() //Map("oui" -> "Oui", "non" -> "Non")
+    val fixedValues = Map("oui" -> "Oui", "non" -> "Non")
     val trimmedLines =
       for (line <- lines) yield {
         for (cell <- line) yield {
@@ -54,12 +54,11 @@ object History {
       }
 
     implicit val keys = Key.keys(trimmedLines)
-    keys.foreach(key => out.println(key.number+" "+key.name))
+    //keys.foreach(key => out.println(s"${key.fixedLengthNumber} ${key.name}"))
 
-    val answers = Answer.answersFromLines(trimmedLines)
-    answers.foreach(answer => { answer.dump(out); out.println("===") })
+    implicit val answers = Answer.answersFromLines(trimmedLines)
+    //answers.foreach(answer => { answer.dump(out); out.println("===") })
 
-    /*
     out.println("Réponses: "+answers.size)
     out.println()
 
@@ -70,172 +69,26 @@ object History {
     Answer.dumpTotals(out, Answer.totals(answers))
     out.println()
 
-    // Hypothesis 2
-    val germanUsefulYes = Answer.filteredAnswers(answers, "Utile d'apprendre l'allemand", "Oui")
-    val germanUsefulNo = Answer.filteredAnswers(answers, "Utile d'apprendre l'allemand", "Non")
-    def dumpHypothesis2(answers: Seq[Answer]) {
-      Answer.dumpTotals(out, Answer.totals(
-        Answer.filteredAnswers(answers, Set("Pourquoi")),
-        withCompetencies = false))
-    }
-    out.println("Hypothèse 2")
-    out.println("-----------")
-    out.println()
-    out.println("Allemand utile = oui:")
-    dumpHypothesis2(germanUsefulYes)
-    out.println()
-    out.println("Allemand utile = non:")
-    dumpHypothesis2(germanUsefulNo)
-    out.println()
+    Answer.dumpCorrelations(
+      out,
+      fromKeyNumbers = Seq("2"),
+      toKeyNumbers = Seq("4.1", "4.2", "4.3", "4.4"))
 
-    // Hypothesis 3 (part 1)
-    def dumpCompetency(f: (Answer, Int) => Boolean, competency: String) {
-      def dump(answers: Seq[Answer]) {
-        Answer.dumpTotals(out, Answer.totals(
-          Answer.filteredAnswers(
-            answers,
-            Set("Participation en classe", "Faire travaux demandés", "Combien de temps pour apprentissage")),
-          withCompetencies = false))
-      }
+    Answer.dumpCorrelations(
+      out,
+      fromKeyNumbers = Seq("3.5", "3.6"),
+      toKeyNumbers = Seq("4.1", "4.2", "4.3", "4.4"))
 
-      val filteredAnswers13 = answers.filter(answer => f(answer, 1) || f(answer, 2) || f(answer, 3))
-      out.println(competency+" = 1-3:")
-      dump(filteredAnswers13)
-      out.println()
-
-      val filteredAnswers46 = answers.filter(answer => f(answer, 4) || f(answer, 5) || f(answer, 6))
-      out.println(competency+" = 4-6:")
-      dump(filteredAnswers46)
-      out.println()
-
-      for (score <- 1 to 6) {
-        val filteredAnswers = answers.filter(answer => f(answer, score))
-        if (filteredAnswers.nonEmpty) {
-          out.println(competency+" = "+score+":")
-          dump(filteredAnswers)
-          out.println()
-        }
-      }
-    }
-    out.println("Hypothèse 3")
-    out.println("-----------")
-    out.println()
-    dumpCompetency(_.oralComprehension == Some(_), "Comprendre discours")
-    dumpCompetency(_.writtenComprehension == Some(_), "Comprendre un texte")
-    dumpCompetency(_.oralExpression == Some(_), "Parler")
-    dumpCompetency(_.writtenExpression == Some(_), "Ecrire")
-    dumpCompetency(_.grammar == Some(_), "Faire de la grammaire")
-    dumpCompetency(_.books == Some(_), "Lire des livres")
-
-    // Hypothesis 3 (part 2)
-    val likeGermanYes = Answer.filteredAnswers(answers, "Aimez-vous l'allemand", "Oui")
-    val likeGermanNo = Answer.filteredAnswers(answers, "Aimez-vous l'allemand", "Non")
-    def dumpHypothesis3(answers: Seq[Answer]) {
-      Answer.dumpTotals(out, Answer.totals(
-        Answer.filteredAnswers(
-          answers,
-          Set("Participation en classe", "Faire travaux demandés", "Combien de temps pour apprentissage"))))
-    }
-    out.println("Aime l'allemand = oui:")
-    dumpHypothesis3(likeGermanYes)
-    out.println()
-    out.println("Aime l'allemand = non:")
-    dumpHypothesis3(likeGermanNo)
-    out.println()
-
-    // Hypothesis 8
-    val allImages =
-      (for {
-        answer <- answers
-        images <- answer.keyValues.get("3 images").toSeq
-        image <- images.map(_._1)
-      } yield image).distinct.sorted
-    out.println("Hypothèse 8")
-    out.println("-----------")
-    out.println()
-    for (image <- allImages) {
-      val answersForImage = Answer.filteredAnswers(answers, "3 images", image)
-      out.println("Image = "+image+":")
-      Answer.dumpTotals(out, Answer.totals(
-        Answer.filteredAnswers(
-          answersForImage,
-          Set("Aimez-vous l'allemand")),
-        withCompetencies = false))
-    }
-    out.println()
-
-    // Hypothesis 9
-    def dumpHypothesis9(answers: Seq[Answer]) {
-      Answer.dumpTotals(out, Answer.totals(
-        Answer.filteredAnswers(
-          answers,
-          Set("en dehors parle allemand/Ch-all", "Séjours", "Combien de temps", "Combien de temps (classes)")),
-        withCompetencies = false))
-    }
-    out.println("Hypothèse 9")
-    out.println("------------")
-    out.println()
-    out.println("Aime l'allemand = oui:")
-    dumpHypothesis9(likeGermanYes)
-    out.println()
-    out.println("Aime l'allemand = non:")
-    dumpHypothesis9(likeGermanNo)
-    out.println()
-
-    // Hypothesis 10
-    def dumpHypothesis10(answers: Seq[Answer]) {
-      Answer.dumpTotals(out, Answer.totals(
-        Answer.filteredAnswers(answers, Set("Télévision en allemand", "Chansons en allemand")),
-        withCompetencies = false))
-    }
-    out.println("Hypothèse 10")
-    out.println("------------")
-    out.println()
-    out.println("Aime l'allemand = oui:")
-    dumpHypothesis10(likeGermanYes)
-    out.println()
-    out.println("Aime l'allemand = non:")
-    dumpHypothesis10(likeGermanNo)
-    out.println()
-
-    // Hypothesis 11
-    def dumpHypothesis11(answers: Seq[Answer]) {
-      Answer.dumpTotals(out, Answer.totals(
-        Answer.filteredAnswers(answers, Set("Utilisation études/vie professionnelle")),
-        withCompetencies = false))
-    }
-    out.println("Hypothèse 11")
-    out.println("------------")
-    out.println()
-    out.println("Aime l'allemand = oui:")
-    dumpHypothesis11(likeGermanYes)
-    out.println()
-    out.println("Aime l'allemand = non:")
-    dumpHypothesis11(likeGermanNo)
-    out.println()
-
-    // Hypothesis 12
-    val findUsefulYes = Answer.filteredAnswers(answers, "Utile d'apprendre l'allemand", "Oui")
-    val findUsefulNo = Answer.filteredAnswers(answers, "Utile d'apprendre l'allemand", "Non")
-    def dumpHypothesis12(answers: Seq[Answer]) {
-      Answer.dumpTotals(out, Answer.totals(
-        Answer.filteredAnswers(answers, Set("Aimez-vous l'allemand")),
-        withCompetencies = false))
-    }
-    out.println("Hypothèse 12")
-    out.println("------------")
-    out.println()
-    out.println("Utile d'apprendre l'allemand = oui:")
-    dumpHypothesis12(findUsefulYes)
-    out.println()
-    out.println("Utile d'apprendre l'allemand = non:")
-    dumpHypothesis12(findUsefulNo)
-    out.println()
-    */
+    Answer.dumpCorrelations(
+      out,
+      fromKeyNumbers = Seq("3.1", "3.2", "3.3"),
+      toKeyNumbers = Seq("4.2", "4.3", "4.4"))
   }
 }
 
-case class Key(number: String, name: String)
+case class Key(number: String, name: String, possibleValues: Seq[String]) {
+  def fixedLengthNumber: String = " " * (4 - number.length) + number
+}
 
 object Key {
   private val RowsPerAnswer = 51
@@ -246,11 +99,14 @@ object Key {
 
     for {
       (line, previousLine) <- linesWithPrevious.filter(_._1(1).nonEmpty)
-    } yield {
-      val number = Some(line(0)).filter(_.nonEmpty).getOrElse(previousLine(0))
-      Key(" " * (4 - number.length) + number, line(1))
-    }
+    } yield Key(
+      number = Some(line(0)).filter(_.nonEmpty).getOrElse(previousLine(0)),
+      name = line(1),
+      possibleValues = line.drop(2).filterNot(_.isEmpty))
   }
+
+  def findByNumber(number: String)(implicit keys: Seq[Key]): Option[Key] =
+    keys.find(_.number == number)
 }
 
 case class Answer(
@@ -363,7 +219,7 @@ object Answer {
       val valueCountString = " ("+valueCount+")"
 
       out.println(
-        " - "+key.number+" "+key.name+valueCountString+": "+
+        s" - ${key.fixedLengthNumber} ${key.name}$valueCountString: "+
         Answer.valuesAndCountsAsString(key, totalsByValue, totals.answerCount))
     }
   }
@@ -373,4 +229,32 @@ object Answer {
 
   def filteredAnswers(answers: Seq[Answer], keys: Set[String]): Seq[Answer] =
     answers.map(answer => answer.copy(keyValues = answer.keyValues.filter(kv => keys.contains(kv._1))))
+
+  def dumpCorrelations(out: PrintWriter,
+                       fromKeyNumbers: Seq[String],
+                       toKeyNumbers: Seq[String])(implicit keys: Seq[Key], answers: Seq[Answer]) {
+    for {
+      toKeyNumber <- toKeyNumbers
+      toKey = Key.findByNumber(toKeyNumber).get
+    } {
+      out.println(toKey.name)
+      out.println("-" * toKey.name.size)
+      out.println()
+
+      for {
+        fromKeyNumber <- fromKeyNumbers
+        fromKey = Key.findByNumber(fromKeyNumber).get
+        fromKeyPossibleValue <- fromKey.possibleValues
+
+      } {
+        val answersForValue = Answer.filteredAnswers(answers, fromKey.name, fromKeyPossibleValue)
+
+        if (answersForValue.nonEmpty) {
+          out.println(s"${fromKey.name} = $fromKeyPossibleValue:")
+          Answer.dumpTotals(out, Answer.totals(Answer.filteredAnswers(answersForValue, Set(toKey.name))))
+          out.println()
+        }
+      }
+    }
+  }
 }
