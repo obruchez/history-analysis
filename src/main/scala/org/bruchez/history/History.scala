@@ -15,7 +15,7 @@ object History {
 
       try {
         inFiles.foreach(dumpFileResults(out, _))
-        //if (inFiles.size > 1) dumpAllFileResults(out, inFiles)
+        // if (inFiles.size > 1) dumpAllFileResults(out, inFiles)
       } finally {
         out.close()
       }
@@ -34,9 +34,11 @@ object History {
   def dumpAllFileResults(out: PrintWriter, files: Seq[String]) {
     val lines =
       files.map(file => CSV.parse(scala.io.Source.fromFile(file).mkString + "\n")).reduce(_ ++ _)
-    dumpResults(out,
-                "Toutes les classes (" + files.map(fileToClass).reduceLeft(_ + " / " + _) + ")",
-                lines)
+    dumpResults(
+      out,
+      "Toutes les classes (" + files.map(fileToClass).reduceLeft(_ + " / " + _) + ")",
+      lines
+    )
   }
 
   def dumpResults(out: PrintWriter, header: String, lines: List[List[String]]) {
@@ -56,10 +58,10 @@ object History {
       }
 
     implicit val keys = Key.keys(trimmedLines)
-    //keys.foreach(key => out.println(s"${key.fixedLengthNumber} ${key.name}"))
+    // keys.foreach(key => out.println(s"${key.fixedLengthNumber} ${key.name}"))
 
     implicit val answers = Answer.answersFromLines(trimmedLines)
-    //answers.foreach(answer => { answer.dump(out); out.println("===") })
+    // answers.foreach(answer => { answer.dump(out); out.println("===") })
 
     out.println("Réponses: " + answers.size)
     out.println()
@@ -71,17 +73,23 @@ object History {
     Answer.dumpTotals(out, Answer.totals(answers))
     out.println()
 
-    Answer.dumpCorrelations(out,
-                            fromKeyNumbers = Seq("2"),
-                            toKeyNumbers = Seq("4.1", "4.2", "4.3", "4.4"))
+    Answer.dumpCorrelations(
+      out,
+      fromKeyNumbers = Seq("2"),
+      toKeyNumbers = Seq("4.1", "4.2", "4.3", "4.4")
+    )
 
-    Answer.dumpCorrelations(out,
-                            fromKeyNumbers = Seq("3.5", "3.6"),
-                            toKeyNumbers = Seq("4.1", "4.2", "4.3", "4.4"))
+    Answer.dumpCorrelations(
+      out,
+      fromKeyNumbers = Seq("3.5", "3.6"),
+      toKeyNumbers = Seq("4.1", "4.2", "4.3", "4.4")
+    )
 
-    Answer.dumpCorrelations(out,
-                            fromKeyNumbers = Seq("3.1", "3.2", "3.3"),
-                            toKeyNumbers = Seq("4.2", "4.3", "4.4"))
+    Answer.dumpCorrelations(
+      out,
+      fromKeyNumbers = Seq("3.1", "3.2", "3.3"),
+      toKeyNumbers = Seq("4.2", "4.3", "4.4")
+    )
   }
 }
 
@@ -98,10 +106,11 @@ object Key {
 
     for {
       (line, previousLine) <- linesWithPrevious.filter(_._1(1).nonEmpty)
-    } yield
-      Key(number = Some(line(0)).filter(_.nonEmpty).getOrElse(previousLine(0)),
-          name = line(1),
-          possibleValues = line.drop(2).filterNot(_.isEmpty))
+    } yield Key(
+      number = Some(line(0)).filter(_.nonEmpty).getOrElse(previousLine(0)),
+      name = line(1),
+      possibleValues = line.drop(2).filterNot(_.isEmpty)
+    )
   }
 
   def findByNumber(number: String)(implicit keys: Seq[Key]): Option[Key] =
@@ -115,7 +124,8 @@ case class Answer(number: Int, keyValues: Map[String, Seq[(String, Int)]] = Map(
     for ((key, values) <- keyValues) {
       val valueCountStrings = values map { case (value, count) => s"$value ($count)" }
       out.println(
-        s" - $key: ${Some(valueCountStrings).filterNot(_.isEmpty).map(_.reduceLeft(_ + ", " + _)).getOrElse("-")}")
+        s" - $key: ${Some(valueCountStrings).filterNot(_.isEmpty).map(_.reduceLeft(_ + ", " + _)).getOrElse("-")}"
+      )
     }
   }
 }
@@ -132,15 +142,12 @@ object Answer {
       def countFromString(value: String, count: String): Option[Int] =
         Some(count).filterNot(_.isEmpty).map(_.toInt)
 
-      val values = remainingLines(0).drop(2).zipWithIndex map {
-        case (value, index) =>
-          (value, remainingLines(1).lift(2 + index).getOrElse(""))
-      } filter {
-        case (value, count) =>
-          value.nonEmpty && countFromString(value, count).nonEmpty
-      } map {
-        case (value, count) =>
-          (value, countFromString(value, count).get)
+      val values = remainingLines(0).drop(2).zipWithIndex map { case (value, index) =>
+        (value, remainingLines(1).lift(2 + index).getOrElse(""))
+      } filter { case (value, count) =>
+        value.nonEmpty && countFromString(value, count).nonEmpty
+      } map { case (value, count) =>
+        (value, countFromString(value, count).get)
       }
 
       val keyValues = answer.keyValues + (key -> values)
@@ -161,16 +168,20 @@ object Answer {
   }
 
   @scala.annotation.tailrec
-  def answersFromLines(remainingLines: Seq[Seq[String]],
-                       parsedAnswers: Seq[Answer] = Seq()): Seq[Answer] = {
+  def answersFromLines(
+      remainingLines: Seq[Seq[String]],
+      parsedAnswers: Seq[Answer] = Seq()
+  ): Seq[Answer] = {
     val nextAnswerOption =
       remainingLines.zipWithIndex.find(li => li._1(0) == LastKey && li._2 != 0).map(_._2 + 2)
 
     nextAnswerOption match {
       case None => parsedAnswers
       case Some(nextAnswer) =>
-        answersFromLines(remainingLines.drop(nextAnswer).dropWhile(_(0).isEmpty),
-                         parsedAnswers :+ Answer(remainingLines.take(nextAnswer)))
+        answersFromLines(
+          remainingLines.drop(nextAnswer).dropWhile(_(0).isEmpty),
+          parsedAnswers :+ Answer(remainingLines.take(nextAnswer))
+        )
     }
   }
 
@@ -178,9 +189,11 @@ object Answer {
   def isHeaderLine(line: Seq[String]): Boolean =
     line(0).map(_.isDigit).fold(true)(_ && _) && cellsEmpty(line.tail)
 
-  def valuesAndCountsAsString(key: Key,
-                              valuesAndCounts: Map[String, (Int, Int)],
-                              answerCount: Int): String = {
+  def valuesAndCountsAsString(
+      key: Key,
+      valuesAndCounts: Map[String, (Int, Int)],
+      answerCount: Int
+  ): String = {
     val sortedValuesAndCounts = valuesAndCounts.toSeq.sortBy(_._1).reverse.sortBy(_._2._1).reverse
 
     Some(sortedValuesAndCounts map { kv =>
@@ -194,9 +207,10 @@ object Answer {
   }
 
   case class Totals(
-                    // First int value is total counting duplicate values, second int value is total counting duplicate values as 1
-                    totalsByKeyAndValue: Map[String, Map[String, (Int, Int)]],
-                    answerCount: Int)
+      // First int value is total counting duplicate values, second int value is total counting duplicate values as 1
+      totalsByKeyAndValue: Map[String, Map[String, (Int, Int)]],
+      answerCount: Int
+  )
 
   def totals(answers: Seq[Answer], withKeyValues: Boolean = true): Totals = {
     val mutableTotals = collection.mutable.Map[String, collection.mutable.Map[String, (Int, Int)]]()
@@ -226,7 +240,8 @@ object Answer {
 
       out.println(
         s" - ${key.fixedLengthNumber} ${key.name}$valueCountString: " +
-          Answer.valuesAndCountsAsString(key, totalsByValue, totals.answerCount))
+          Answer.valuesAndCountsAsString(key, totalsByValue, totals.answerCount)
+      )
     }
   }
 
@@ -235,11 +250,14 @@ object Answer {
 
   def filteredAnswers(answers: Seq[Answer], keys: Set[String]): Seq[Answer] =
     answers.map(answer =>
-      answer.copy(keyValues = answer.keyValues.filter(kv => keys.contains(kv._1))))
+      answer.copy(keyValues = answer.keyValues.filter(kv => keys.contains(kv._1)))
+    )
 
-  def dumpCorrelations(out: PrintWriter, fromKeyNumbers: Seq[String], toKeyNumbers: Seq[String])(
-      implicit keys: Seq[Key],
-      answers: Seq[Answer]) {
+  def dumpCorrelations(
+      out: PrintWriter,
+      fromKeyNumbers: Seq[String],
+      toKeyNumbers: Seq[String]
+  )(implicit keys: Seq[Key], answers: Seq[Answer]) {
     for {
       toKeyNumber <- toKeyNumbers
       toKey = Key.findByNumber(toKeyNumber).get
@@ -258,8 +276,10 @@ object Answer {
 
         if (answersForValue.nonEmpty) {
           out.println(s"${fromKey.name} = $fromKeyPossibleValue:")
-          Answer.dumpTotals(out,
-                            Answer.totals(Answer.filteredAnswers(answersForValue, Set(toKey.name))))
+          Answer.dumpTotals(
+            out,
+            Answer.totals(Answer.filteredAnswers(answersForValue, Set(toKey.name)))
+          )
           out.println()
         }
       }
